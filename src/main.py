@@ -97,51 +97,78 @@ class GoniometerApp:
 
 def main():
     """
-    Entry point of the script. Handles user configuration via console.
+    Entry point of the script. Handles user configuration via an interactive CLI wizard.
     """
     print("========================================")
     print("   EDGE AI REHABILITATION GONIOMETER    ")
     print("========================================")
-    print("Available Joints for Analysis:")
-    print("1: PINKY_MCP (Base of pinky)")
-    print("2: PINKY_PIP (Middle of pinky)")
-    print("3: INDEX_MCP (Base of index)")
-    print("4: INDEX_PIP (Middle of index)")
-    print("5: THUMB_MCP (Base of thumb)")
-    print("----------------------------------------")
-    
-    # Simple mapping dictionary
-    joint_map = {
-        "1": HandJoint.PINKY_MCP,
-        "2": HandJoint.PINKY_PIP,
-        "3": HandJoint.INDEX_MCP,
-        "4": HandJoint.INDEX_PIP,
-        "5": HandJoint.THUMB_MCP
-    }
-    
-    # Prompt user for up to 3 joints
-    user_input = input("Enter up to 3 joint numbers separated by commas (e.g. 1,2): ")
     
     selected_joints = []
-    # Split input string by comma, strip whitespaces, and map to Enum
-    for choice in user_input.split(','):
-        clean_choice = choice.strip()
-        if clean_choice in joint_map:
-            selected_joints.append(joint_map[clean_choice])
+    
+    # Dictionaries to map user inputs to specific strings
+    fingers = {
+        "1": "THUMB",
+        "2": "INDEX",
+        "3": "MIDDLE",
+        "4": "RING",
+        "5": "PINKY"
+    }
+    
+    phalanges = {
+        "1": "MCP", # Base knuckle (or CMC for thumb base)
+        "2": "PIP", # Middle joint (or MCP for thumb)
+        "3": "DIP"  # Tip joint (or IP for thumb)
+    }
+
+    # Ask how many joints to analyze
+    try:
+        num_joints = int(input("How many joints do you want to measure simultaneously? (1-3): "))
+        num_joints = max(1, min(3, num_joints)) # Clamp between 1 and 3
+    except ValueError:
+        print("[WARNING] Invalid input. Defaulting to 1 joint.")
+        num_joints = 1
+
+    # Loop to select each joint step by step
+    for i in range(num_joints):
+        print(f"\n--- Configuring Joint {i+1} of {num_joints} ---")
+        
+        # STEP 1: Select Finger
+        print("Select Finger:")
+        print("1: Thumb   2: Index   3: Middle   4: Ring   5: Pinky")
+        f_choice = input("Choice (1-5): ").strip()
+        finger_name = fingers.get(f_choice, "PINKY") # Default to Pinky if invalid
+        
+        # STEP 2: Select Phalanx
+        print(f"Select Phalanx for {finger_name}:")
+        if finger_name == "THUMB":
+            print("1: CMC (Base)   2: MCP (Middle)   3: IP (Tip)")
+        else:
+            print("1: MCP (Base)   2: PIP (Middle)   3: DIP (Tip)")
             
-    # Fallback if user enters garbage or nothing
-    if not selected_joints:
-        print("[WARNING] Invalid selection. Defaulting to PINKY_MCP.")
-        selected_joints = [HandJoint.PINKY_MCP]
+        p_choice = input("Choice (1-3): ").strip()
+        phalanx_name = phalanges.get(p_choice, "MCP")
         
-    # Enforce maximum 3 joints rule before initializing the app
-    if len(selected_joints) > 3:
-        print("[WARNING] More than 3 joints selected. Only the first 3 will be analyzed.")
-        selected_joints = selected_joints[:3]
+        # Special case for Thumb terminology mapping
+        if finger_name == "THUMB":
+            if phalanx_name == "MCP": phalanx_name = "CMC"
+            elif phalanx_name == "PIP": phalanx_name = "MCP"
+            elif phalanx_name == "DIP": phalanx_name = "IP"
+
+        # Combine both strings to match the Enum name (e.g., "PINKY_MCP")
+        enum_string = f"{finger_name}_{phalanx_name}"
         
-    # Instantiate and run the app
+        # Fetch the actual Enum object dynamically
+        joint_enum = getattr(HandJoint, enum_string)
+        selected_joints.append(joint_enum)
+        print(f"[SUCCESS] Added {enum_string} to tracking list.")
+
+    print("\n[INFO] Starting camera...")
     app = GoniometerApp(target_joints=selected_joints)
     app.run()
+
+
+if __name__ == "__main__":
+    main()
 
 
 if __name__ == "__main__":
