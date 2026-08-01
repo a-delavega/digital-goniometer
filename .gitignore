@@ -1,0 +1,21 @@
+# Entornos virtuales (No queremos subir gigas de librerías)
+venv/
+env/
+.env
+
+# Archivos compilados de Python (Se autogeneran solos)
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Logs y bases de datos locales
+*.log
+*.sqlite3
+
+# Archivos de configuración locales de VS Code
+.vscode/
+
+# Archivos ocultos del Sistema Operativo
+Thumbs.db
+.DS_Store
