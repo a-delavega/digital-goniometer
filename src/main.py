@@ -6,6 +6,7 @@ from typing import List
 from biomechanics.joints_map import HandJoint
 from biomechanics.math_utils import BiomechanicsMath
 from vision.tracker import HandTracker
+from core.config import RehabConfig  # <-- NUEVO IMPORT
 
 class GoniometerApp:
     """
@@ -14,83 +15,82 @@ class GoniometerApp:
     """
     
     def __init__(self, target_joints: List[HandJoint], camera_index: int = 0):
-        """
-        Initializes the application.
-        
-        Args:
-            target_joints (List[HandJoint]): A list of up to 3 joints to measure simultaneously.
-            camera_index (int): The ID of the webcam (0 is usually the default laptop camera).
-        """
-        # Enforce the maximum limit of 3 joints for UI and performance reasons
         self.target_joints = target_joints[:3] 
         self.tracker = HandTracker()
         
-        # Initialize OpenCV video capture
+        # State variable to store the initial palm posture (calibration)
+        self.baseline_palm_normal = None
+        
         self.cap = cv2.VideoCapture(camera_index)
         if not self.cap.isOpened():
             print("[ERROR] Could not access the webcam. Please check your hardware.")
             sys.exit(1)
 
     def run(self):
-        """
-        Starts the main processing loop.
-        """
         print(f"\n[INFO] Starting Digital Goniometer for {len(self.target_joints)} joint(s).")
         print("[INFO] Press 'q' on the video window to exit.\n")
         
         while self.cap.isOpened():
             success, frame = self.cap.read()
             if not success:
-                print("[WARNING] Ignoring empty camera frame.")
                 continue
 
-            # 1. Flip the frame horizontally for a natural 'mirror' effect (UX for patients)
             frame = cv2.flip(frame, 1)
-            
-            # 2. Vision Layer: Get annotated frame and raw landmarks
             annotated_frame, results = self.tracker.process_frame(frame)
             landmarks_3d = self.tracker.get_world_landmarks(results)
             
-            # 3. Biomechanics Layer: Calculate angles if a hand is detected
             if landmarks_3d is not None:
-                # Iterate over the selected joints dynamically
+                # --- CHEAT DETECTION LOGIC (Articular Isolation) ---
+                # Landmark 0: Wrist, 5: Index Base, 17: Pinky Base
+                p_wrist = landmarks_3d[0]
+                p_index_mcp = landmarks_3d[5]
+                p_pinky_mcp = landmarks_3d[17]
+                
+                current_palm_normal = BiomechanicsMath.calculate_palm_normal(p_wrist, p_index_mcp, p_pinky_mcp)
+                
+                # Calibrate baseline if not set
+                if self.baseline_palm_normal is None:
+                    self.baseline_palm_normal = current_palm_normal
+                    cv2.putText(annotated_frame, "CALIBRATING POSTURE...", (20, 30), 
+                                cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 255, 0), 2)
+                else:
+                    # Calculate deviation from baseline
+                    deviation = BiomechanicsMath.calculate_angle_between_vectors(
+                        self.baseline_palm_normal, current_palm_normal
+                    )
+                    
+                    # Evaluate against medical thresholds
+                    if deviation > RehabConfig.MAX_PALM_DEVIATION_DEGREES:
+                        warning_text = f"CHEATING! Wrist Rotated: {int(deviation)} deg"
+                        cv2.putText(annotated_frame, warning_text, (20, 30), 
+                                    cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 0, 255), 2)  # Red text
+                    else:
+                        ok_text = f"Posture OK. Deviation: {int(deviation)} deg"
+                        cv2.putText(annotated_frame, ok_text, (20, 30), 
+                                    cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 0), 2)  # Green text
+
+                # --- RANGE OF MOTION (ROM) LOGIC ---
                 for index, joint in enumerate(self.target_joints):
-                    # Extract the specific 3D indices for this joint
                     p_prox_idx, p_vertex_idx, p_distal_idx = joint.indices
                     
                     p_proximal = landmarks_3d[p_prox_idx]
                     p_vertex = landmarks_3d[p_vertex_idx]
                     p_distal = landmarks_3d[p_distal_idx]
                     
-                    # Compute the true 3D spatial angle
-                    angle = BiomechanicsMath.calculate_3d_angle(
-                        p_proximal, p_vertex, p_distal
-                    )
+                    angle = BiomechanicsMath.calculate_3d_angle(p_proximal, p_vertex, p_distal)
                     
-                    # 4. Telemetry UI: Draw text on screen
-                    # Dynamically offset the Y position based on the index to avoid overlapping
-                    y_position = 40 + (index * 40)
-                    text = f"{joint.name}: {int(angle)} deg"
-                    
-                    cv2.putText(
-                        annotated_frame, 
-                        text, 
-                        (20, y_position), 
-                        cv2.FONT_HERSHEY_SIMPLEX, 
-                        1, 
-                        (0, 255, 0), # Green color (BGR)
-                        2, 
-                        cv2.LINE_AA
-                    )
+                    # Offset Y position so it draws below the cheat detection text
+                    y_position = 70 + (index * 40)
+                    cv2.putText(annotated_frame, f"{joint.name}: {int(angle)} deg", 
+                                (20, y_position), cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 255, 255), 2)
+            else:
+                # Reset baseline when hand is not on screen
+                self.baseline_palm_normal = None
 
-            # Render the final composite frame
             cv2.imshow('Digital Goniometer - Rehab Edge AI', annotated_frame)
-
-            # Exit condition (wait 1ms for key press)
             if cv2.waitKey(1) & 0xFF == ord('q'):
                 break
 
-        # Cleanup hardware resources
         self.cap.release()
         cv2.destroyAllWindows()
 
