@@ -27,72 +27,81 @@ class GoniometerApp:
             sys.exit(1)
 
     def run(self):
-        print(f"\n[INFO] Starting Digital Goniometer for {len(self.target_joints)} joint(s).")
-        print("[INFO] Press 'q' on the video window to exit.\n")
-        
-        while self.cap.isOpened():
-            success, frame = self.cap.read()
-            if not success:
-                continue
-
-            frame = cv2.flip(frame, 1)
-            annotated_frame, results = self.tracker.process_frame(frame)
-            landmarks_3d = self.tracker.get_world_landmarks(results)
+            print(f"\n[INFO] Starting Digital Goniometer for {len(self.target_joints)} joint(s).")
+            print("[INFO] Press 'q' on the video window or click the 'X' to exit.\n")
             
-            if landmarks_3d is not None:
-                # --- CHEAT DETECTION LOGIC (Articular Isolation) ---
-                # Landmark 0: Wrist, 5: Index Base, 17: Pinky Base
-                p_wrist = landmarks_3d[0]
-                p_index_mcp = landmarks_3d[5]
-                p_pinky_mcp = landmarks_3d[17]
+            window_name = 'Digital Goniometer - Rehab Edge AI'
+            
+            while self.cap.isOpened():
+                success, frame = self.cap.read()
+                if not success:
+                    continue
+
+                frame = cv2.flip(frame, 1)
+                annotated_frame, results = self.tracker.process_frame(frame)
+                landmarks_3d = self.tracker.get_world_landmarks(results)
                 
-                current_palm_normal = BiomechanicsMath.calculate_palm_normal(p_wrist, p_index_mcp, p_pinky_mcp)
-                
-                # Calibrate baseline if not set
-                if self.baseline_palm_normal is None:
-                    self.baseline_palm_normal = current_palm_normal
-                    cv2.putText(annotated_frame, "CALIBRATING POSTURE...", (20, 30), 
-                                cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 255, 0), 2)
-                else:
-                    # Calculate deviation from baseline
-                    deviation = BiomechanicsMath.calculate_angle_between_vectors(
-                        self.baseline_palm_normal, current_palm_normal
-                    )
+                if landmarks_3d is not None:
+                    # --- CHEAT DETECTION LOGIC ---
+                    p_wrist = landmarks_3d[0]
+                    p_index_mcp = landmarks_3d[5]
+                    p_pinky_mcp = landmarks_3d[17]
                     
-                    # Evaluate against medical thresholds
-                    if deviation > RehabConfig.MAX_PALM_DEVIATION_DEGREES:
-                        warning_text = f"CHEATING! Wrist Rotated: {int(deviation)} deg"
-                        cv2.putText(annotated_frame, warning_text, (20, 30), 
-                                    cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 0, 255), 2)  # Red text
+                    current_palm_normal = BiomechanicsMath.calculate_palm_normal(p_wrist, p_index_mcp, p_pinky_mcp)
+                    
+                    if self.baseline_palm_normal is None:
+                        self.baseline_palm_normal = current_palm_normal
+                        cv2.putText(annotated_frame, "CALIBRATING POSTURE...", (20, 30), 
+                                    cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 255, 0), 2)
                     else:
-                        ok_text = f"Posture OK. Deviation: {int(deviation)} deg"
-                        cv2.putText(annotated_frame, ok_text, (20, 30), 
-                                    cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 0), 2)  # Green text
+                        deviation = BiomechanicsMath.calculate_angle_between_vectors(
+                            self.baseline_palm_normal, current_palm_normal
+                        )
+                        
+                        if deviation > RehabConfig.MAX_PALM_DEVIATION_DEGREES:
+                            warning_text = f"CHEATING! Wrist Rotated: {int(deviation)} deg"
+                            cv2.putText(annotated_frame, warning_text, (20, 30), 
+                                        cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 0, 255), 2)
+                        else:
+                            ok_text = f"Posture OK. Deviation: {int(deviation)} deg"
+                            cv2.putText(annotated_frame, ok_text, (20, 30), 
+                                        cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 0), 2)
 
-                # --- RANGE OF MOTION (ROM) LOGIC ---
-                for index, joint in enumerate(self.target_joints):
-                    p_prox_idx, p_vertex_idx, p_distal_idx = joint.indices
-                    
-                    p_proximal = landmarks_3d[p_prox_idx]
-                    p_vertex = landmarks_3d[p_vertex_idx]
-                    p_distal = landmarks_3d[p_distal_idx]
-                    
-                    angle = BiomechanicsMath.calculate_3d_angle(p_proximal, p_vertex, p_distal)
-                    
-                    # Offset Y position so it draws below the cheat detection text
-                    y_position = 70 + (index * 40)
-                    cv2.putText(annotated_frame, f"{joint.name}: {int(angle)} deg", 
-                                (20, y_position), cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 255, 255), 2)
-            else:
-                # Reset baseline when hand is not on screen
-                self.baseline_palm_normal = None
+                    # --- RANGE OF MOTION (ROM) LOGIC ---
+                    for index, joint in enumerate(self.target_joints):
+                        p_prox_idx, p_vertex_idx, p_distal_idx = joint.indices
+                        p_proximal = landmarks_3d[p_prox_idx]
+                        p_vertex = landmarks_3d[p_vertex_idx]
+                        p_distal = landmarks_3d[p_distal_idx]
+                        
+                        angle = BiomechanicsMath.calculate_3d_angle(p_proximal, p_vertex, p_distal)
+                        
+                        y_position = 70 + (index * 40)
+                        cv2.putText(annotated_frame, f"{joint.name}: {int(angle)} deg", 
+                                    (20, y_position), cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 255, 255), 2)
+                else:
+                    self.baseline_palm_normal = None
 
-            cv2.imshow('Digital Goniometer - Rehab Edge AI', annotated_frame)
-            if cv2.waitKey(1) & 0xFF == ord('q'):
-                break
+                cv2.imshow(window_name, annotated_frame)
 
-        self.cap.release()
-        cv2.destroyAllWindows()
+                # --- EXIT CONDITIONS ---
+                # 1. Exit if 'q' is pressed
+                if cv2.waitKey(1) & 0xFF == ord('q'):
+                    break
+                
+                # 2. Exit if the window 'X' button is clicked
+                try:
+                    if cv2.getWindowProperty(window_name, cv2.WND_PROP_VISIBLE) < 1:
+                        break
+                except cv2.error:
+                    # If OpenCV throws an error because the window was destroyed, break the loop
+                    break
+
+            # Deep cleanup to prevent ghost threads
+            self.cap.release()
+            cv2.destroyAllWindows()
+            cv2.waitKey(1)  # OpenCV hack to flush the GUI event queue
+            self.tracker.close()
 
 
 def main():

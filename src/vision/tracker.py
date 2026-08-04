@@ -82,3 +82,10 @@ class HandTracker:
         coords = np.array([[lm.x, lm.y, lm.z] for lm in landmarks])
         
         return coords
+    
+    def close(self):
+        """
+        Releases MediaPipe resources and background threads.
+        Critical to prevent the terminal from hanging on exit.
+        """
+        self.hands.close()
