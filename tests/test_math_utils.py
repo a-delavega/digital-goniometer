@@ -31,6 +31,16 @@ class TestBiomechanicsMath(unittest.TestCase):
         
         # Assert that the calculated angle is exactly 180.0 degrees
         self.assertAlmostEqual(angle, 180.0, places=2)
+        
+    def test_calculate_angle_between_identical_vectors(self):
+        """Test that the angle between two identical vectors is exactly 0.0 degrees."""
+        v1 = np.array([1.0, 2.0, 3.0])
+        v2 = np.array([1.0, 2.0, 3.0])
+        
+        angle = BiomechanicsMath.calculate_angle_between_vectors(v1, v2)
+        
+        # Assert no deviation between identical posture vectors
+        self.assertAlmostEqual(angle, 0.0, places=2)
 
 if __name__ == '__main__':
     unittest.main()
