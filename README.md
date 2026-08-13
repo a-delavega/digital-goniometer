@@ -63,6 +63,17 @@ src/
 
 ---
 
+## 🧪 Testing
+
+The project includes a comprehensive unit testing suite covering 3D vector math, data structures, and edge cases (e.g., hardware failures). 
+
+To run the entire test suite, simply execute the global test runner:
+
+```bash
+python run_tests.py
+```
+---
+
 ## 🚀 Installation & Setup
 
 ### 1. Clone the repository
@@ -183,6 +194,17 @@ src/
   - Renderizado y visualización en tiempo real.
 
 ---
+
+## 🧪 Testing
+
+El proyecto incluye una suite completa de pruebas unitarias que cubre matemáticas vectoriales 3D, estructuras de datos y casos límite (por ejemplo, fallos de hardware).
+
+Para ejecutar toda la suite de pruebas, simplemente ejecuta el corredor de pruebas global:
+
+```bash
+python run_tests.py
+```
+--- 
 
 ## 🚀 Instalación y Configuración
 
