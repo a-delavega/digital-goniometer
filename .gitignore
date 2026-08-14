@@ -1,21 +1,30 @@
-# Entornos virtuales (No queremos subir gigas de librerías)
+# Virtual environments (we don't want to upload huge library folders)
 venv/
 env/
 .env
 
-# Archivos compilados de Python (Se autogeneran solos)
+# Compiled Python files (generated automatically)
 __pycache__/
 *.pyc
 *.pyo
 *.pyd
 
-# Logs y bases de datos locales
+# Local logs and databases
 *.log
 *.sqlite3
 
-# Archivos de configuración locales de VS Code
+# Local VS Code configuration files
 .vscode/
 
-# Archivos ocultos del Sistema Operativo
+# Hidden operating system files
 Thumbs.db
 .DS_Store
+
+# --- Medical Data Privacy ---
+# Ignore all patient data files in the exports directory to prevent accidental upload
+exports/*.csv
+exports/*.xlsx
+exports/*.json
+
+# Make sure we still track the exports folder itself using the .gitkeep file
+!exports/.gitkeep
