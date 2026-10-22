@@ -1,8 +1,12 @@
 import cv2
 import sys
+import os
 import time
 import numpy as np
 from typing import List, Dict, Optional
+
+# Ensure 'src' is always on sys.path regardless of execution working directory
+sys.path.insert(0, os.path.abspath(os.path.dirname(__file__)))
 
 # Import our custom modules
 from biomechanics.joints_map import HandJoint

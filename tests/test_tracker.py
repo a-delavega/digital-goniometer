@@ -2,11 +2,24 @@ import unittest
 import numpy as np
 import sys
 import os
+from unittest.mock import patch
+import mediapipe as mp
 
 # Add the 'src' directory to the Python path
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '../src')))
 
 from vision.tracker import HandTracker
+
+
+class TestMediaPipeCompatibility(unittest.TestCase):
+
+    def test_missing_legacy_api_has_actionable_error(self):
+        with patch.object(mp, "solutions", None, create=True):
+            with self.assertRaisesRegex(ImportError, "legacy Solutions API") as error:
+                HandTracker()
+            self.assertIn(mp.__version__, str(error.exception))
+            self.assertIn(sys.executable, str(error.exception))
+
 
 class TestHandTracker(unittest.TestCase):
     

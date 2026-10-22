@@ -115,6 +115,13 @@ Run the main application:
 python src/main.py
 ```
 
+On Windows, if the virtual environment is not activated, use its interpreter explicitly:
+
+```powershell
+.\venv\Scripts\python.exe -m pip install -r requirements.txt
+.\venv\Scripts\python.exe src\main.py
+```
+
 Then:
 
 1. Select how many joints you want to monitor.

@@ -1,12 +1,6 @@
 import cv2
-try:
-    import mediapipe as mp
-    # For mediapipe versions where submodules are loaded lazily or restructured
-    if not hasattr(mp, 'solutions'):
-        import mediapipe.python.solutions as mp_solutions
-        mp.solutions = mp_solutions
-except ImportError:
-    pass
+import mediapipe as mp
+import sys
 
 import numpy as np
 from typing import Tuple, Optional, Any
@@ -25,12 +19,19 @@ class HandTracker:
             min_det_conf (float): Minimum confidence value (0.0 - 1.0) for hand detection.
             min_track_conf (float): Minimum confidence value (0.0 - 1.0) for landmark tracking.
         """
-        if not hasattr(mp, 'solutions'):
-            import mediapipe.python.solutions as mp_solutions
-            mp.solutions = mp_solutions
+        solutions = getattr(mp, "solutions", None)
+        if solutions is None:
+            raise ImportError(
+                "This application requires MediaPipe's legacy Solutions API, "
+                f"but MediaPipe {getattr(mp, '__version__', 'unknown')} "
+                f"was loaded by {sys.executable}. From the project directory, "
+                "install dependencies and run with the project environment: "
+                r".\venv\Scripts\python.exe -m pip install -r requirements.txt; "
+                r".\venv\Scripts\python.exe src\main.py"
+            )
 
-        self.mp_drawing = mp.solutions.drawing_utils
-        self.mp_hands = mp.solutions.hands
+        self.mp_drawing = solutions.drawing_utils
+        self.mp_hands = solutions.hands
         
         # We limit max_num_hands=1 to focus solely on the rehabilitation patient's hand
         # and significantly reduce computational load for Edge AI (ESP32 / Raspberry Pi).
