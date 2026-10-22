@@ -19,6 +19,12 @@ An AI-powered, vision-based digital goniometer for hand rehabilitation and physi
 
 </div>
 
+> [!WARNING]
+> **Educational & Experimental Disclaimer:**
+> Este proyecto es un **desarrollo estrictamente didáctico y de exploración técnica** diseñado para investigar la aplicación de visión artificial, matemáticas vectoriales 3D y Edge AI. **NO es un dispositivo médico, software clínico certificado ni herramienta de diagnóstico**. No debe utilizarse para evaluar, diagnosticar, tratar ni rehabilitar patologías reales ni sustituir el criterio de profesionales sanitarios o fisioterapeutas colegiados.
+
+---
+
 ## Overview
 
 Traditional rehabilitation assessment relies on manual plastic goniometers or expensive, intrusive wearable sensor gloves. This project delivers a **computer vision and edge-ready software instrument** that extracts spatial hand kinematics directly from a standard webcam without physical contact.
