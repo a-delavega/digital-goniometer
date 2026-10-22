@@ -1,268 +1,195 @@
+<div align="center">
+
 # 🦾 Digital Goniometer - Edge AI Rehabilitation
 
-An AI-powered, vision-based digital goniometer for hand rehabilitation.
+[![CI/CD Pipeline](https://github.com/a-delavega/digital-goniometer/actions/workflows/ci.yml/badge.svg)](https://github.com/a-delavega/digital-goniometer/actions/workflows/ci.yml)
+[![Python Version](https://img.shields.io/badge/python-3.10%20%7C%203.11-blue.svg?logo=python&logoColor=white)](https://www.python.org/)
+[![MediaPipe](https://img.shields.io/badge/MediaPipe-Hands%200.10.9-FF6F00.svg?logo=google&logoColor=white)](https://developers.google.com/mediapipe)
+[![OpenCV](https://img.shields.io/badge/OpenCV-4.9%2B-5C3EE8.svg?logo=opencv&logoColor=white)](https://opencv.org/)
+[![NumPy](https://img.shields.io/badge/NumPy-Vector%20Math-013243.svg?logo=numpy&logoColor=white)](https://numpy.org/)
+[![Tests](https://img.shields.io/badge/tests-12%20passed-brightgreen.svg?logo=pytest&logoColor=white)](tests/)
+[![Architecture](https://img.shields.io/badge/architecture-Clean%20%2F%20Decoupled-orange.svg)](#architecture)
+[![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 
-This project uses computer vision and 3D vector mathematics to measure the **Range of Motion (ROM)** of hand joints in real time, eliminating the need for physical wearable sensors.
+An AI-powered, vision-based digital goniometer for hand rehabilitation and physical therapy. It measures real-world 3D Range of Motion (ROM), detects posture compensation (cheating) dynamically via normal vectors, applies adaptive jitter filtering (1€ Filter), and exports clinical exercise metrics in real time.
 
-> **Status:** Phase 1 (Local MVP) – Core Biomechanics & Vision Tracker completed.
-
----
-
-## ✨ Key Features
-
-- 🖐️ **Full Hand Topography:** Complete mapping of all **14 functional joints** across the five fingers (MCP, PIP, DIP, CMC, IP).
-- 📐 **True 3D Spatial Angles:** Calculates Range of Motion (ROM) using real-world 3D coordinates (meters), making measurements immune to 2D camera perspective distortion.
-- 🚨 **Articular Isolation (Cheat Detection):** Uses cross-product vector mathematics to dynamically calculate the palm's normal vector, detecting wrist compensation (unwanted rotation) and warning the patient in real time.
-- 💻 **Interactive CLI Wizard:** Step-by-step console assistant to dynamically select and monitor up to **three joints simultaneously** without interface overlap.
+[Overview](#overview) • [Key Features](#key-features) • [Architecture](#architecture) • [Quickstart](#quickstart) • [Biomechanical Engine](#biomechanical-engine) • [Testing](#testing) • [Design Decisions](#design-decisions)
 
 ---
 
-## 🛠️ Tech Stack
+</div>
 
-- **Language:** Python 3.10+
-- **Computer Vision:** OpenCV (`opencv-python`)
-- **AI & Tracking:** Google MediaPipe Hands
-- **Mathematics:** NumPy (Linear Algebra & 3D Vector Mathematics)
+## Overview
+
+Traditional rehabilitation assessment relies on manual plastic goniometers or expensive, intrusive wearable sensor gloves. This project delivers a **computer vision and edge-ready software instrument** that extracts spatial hand kinematics directly from a standard webcam without physical contact.
+
+The platform is designed with clinical precision and clean software engineering:
+- **Clean Decoupled Architecture:** Pure anatomical definitions and vector mathematics are isolated from the computer vision framework and UI rendering layers.
+- **True 3D Spatial Kinematics:** Angles are computed in real-world meters ($x, y, z$) from MediaPipe World Landmarks, eliminating perspective foreshortening common in standard 2D image analysis.
+- **Real-Time Biofeedback & Isometry:** Tracks holding periods under isometric contraction thresholds and alerts patients when compensating with wrist rotation.
+- **Session Audit & Metric Export:** Auto-generates structured CSV session logs in `exports/` capturing angle trajectories, smoothing benchmarks, and postural flags.
 
 ---
 
-## 🏗️ Architecture (Clean Code)
+## Key Features
 
-The project follows a modular, decoupled architecture to ensure scalability for future IoT/Edge and Web integrations.
+- 🖐️ **Full Hand Topography (14 Joints):** Anatomical mapping across all 5 digits (MCP, PIP, DIP for fingers; CMC, MCP, IP for the thumb).
+- 📐 **Vector-Based 3D Angle Calculation:** Computes true spatial vertex flexion using dot products, normalized vectors, and clamped cosine transforms.
+- 🚨 **Articular Isolation & Cheat Detection:** Continuously computes the palm's normal vector via vector cross product ($\vec{v}_1 \times \vec{v}_2$), triggering real-time compensation warnings if the wrist rotates beyond clinical tolerances.
+- 🎯 **1€ Filter Adaptive Signal Smoothing:** Dual-cutoff low-pass filter eliminates camera landmark jitter during static postures while preserving responsive zero-lag tracking during rapid flexions.
+- ⏱️ **Isometric Hold Tracking:** Automatically detects when a patient maintains target joint flexion angles within tolerance thresholds for a required duration (e.g. 3.0s).
+- 🧵 **Threaded Video Pipeline:** Dedicated `VideoStream` worker thread prevents blocking OpenCV I/O from stuttering the main inference and rendering loop.
+- 📊 **Automated CSV Export:** Clinical audit log recording timestamp, elapsed time, raw vs. smoothed angles, deviation angles, and isometry flags.
+
+---
+
+## Architecture
+
+The project adheres to Clean Architecture principles: business math and anatomical models have **zero dependencies** on OpenCV or MediaPipe.
+
+```
+┌────────────────────────────────────────────────────────┐
+│                      UI / App Layer                    │
+│      main.py (CLI Wizard, HUD Overlay, Event Loop)     │
+└──────────────────────────┬─────────────────────────────┘
+                           │
+         ┌─────────────────┴─────────────────┐
+         ▼                                   ▼
+┌─────────────────────────┐       ┌────────────────────────┐
+│       Vision Layer      │       │     Core & Exporters   │
+│   HandTracker (Adapter) │       │   RehabConfig Settings │
+│   VideoStream (Thread)  │       │   SessionExporter(CSV) │
+└────────────┬────────────┘       └───────────┬────────────┘
+             │                                │
+             └────────────────┬───────────────┘
+                              ▼
+┌────────────────────────────────────────────────────────┐
+│                   Biomechanics Domain                  │
+│       HandJoint (Enum Map) · BiomechanicsMath          │
+│       OneEuroFilter · Palm Normal Cross-Product        │
+└────────────────────────────────────────────────────────┘
+```
+
+### Directory Structure
 
 ```text
-src/
-├── biomechanics/
-│   ├── joints_map.py
-│   └── math_utils.py
-├── vision/
-│   └── tracker.py
-├── core/
-│   └── config.py
-└── main.py
+digital-goniometer/
+├── .github/
+│   └── workflows/
+│       └── ci.yml               # GitHub Actions CI matrix (Python 3.10, 3.11)
+├── exports/                     # Auto-generated patient session CSV reports
+├── src/
+│   ├── biomechanics/            # Pure domain logic (Framework agnostic)
+│   │   ├── joints_map.py        # 14 anatomical joint landmark triples
+│   │   └── math_utils.py        # 3D vector math & OneEuroFilter
+│   ├── core/                    # System configuration & persistence
+│   │   ├── config.py            # Clinical thresholds & paths
+│   │   └── session_exporter.py  # Thread-safe CSV session logging
+│   ├── vision/                  # Vision adapter layer
+│   │   ├── stream.py            # Non-blocking threaded video acquisition
+│   │   └── tracker.py           # Decoupled MediaPipe Hands adapter
+│   └── main.py                  # CLI wizard & real-time visual orchestrator
+├── tests/                       # Unit & integration test suite
+│   ├── run_tests.py             # Global test suite runner
+│   ├── test_config.py           # Threshold validation tests
+│   ├── test_joints_map.py       # Landmark topology integrity tests
+│   ├── test_main_cli.py         # Mocked CLI interface flow tests
+│   ├── test_math_utils.py       # 3D vector angle & OneEuroFilter tests
+│   ├── test_session_exporter.py # CSV export integrity tests
+│   └── test_tracker.py          # Vision adapter & compatibility tests
+├── pyproject.toml               # Modern PEP 518/621 package metadata
+└── requirements.txt             # Locked production dependencies
 ```
-
-### Module Description
-
-- **`src/biomechanics/`**
-  - Pure business logic.
-  - Anatomical mapping (`joints_map.py`).
-  - Framework-agnostic mathematical engine (`math_utils.py`).
-
-- **`src/vision/`**
-  - AI adapter layer.
-  - Wraps MediaPipe Hands (`tracker.py`) to keep the application independent from the tracking framework.
-
-- **`src/core/`**
-  - Application configuration.
-  - Medical thresholds (`config.py`).
-
-- **`src/main.py`**
-  - Main orchestrator.
-  - Real-time rendering and visualization.
 
 ---
 
-## 🧪 Testing
+## Quickstart
 
-The project includes a comprehensive unit testing suite covering 3D vector math, data structures, and edge cases (e.g., hardware failures). 
-
-To run the entire test suite, simply execute the global test runner:
+### 1. Clone & Set Up Environment
 
 ```bash
-python run_tests.py
-```
----
-
-## 🚀 Installation & Setup
-
-### 1. Clone the repository
-
-```bash
-git clone https://github.com/your-username/digital-goniometer.git
+git clone https://github.com/a-delavega/digital-goniometer.git
 cd digital-goniometer
-```
 
-### 2. Create and activate a virtual environment
-
-#### Windows (PowerShell)
-
-```powershell
+# Create virtual environment
 python -m venv venv
+
+# Activate virtual environment
+# Windows (PowerShell):
 .\venv\Scripts\activate
-```
-
-#### Linux / macOS
-
-```bash
-python3 -m venv venv
+# Linux / macOS:
 source venv/bin/activate
+
+# Install dependencies
+pip install -r requirements.txt
 ```
 
-### 3. Install dependencies
-
-```bash
-pip install opencv-python==4.9.0.80 mediapipe==0.10.9 numpy==1.26.3
-```
-
----
-
-## 🎮 Usage
-
-Run the main application:
+### 2. Launch the Application
 
 ```bash
 python src/main.py
 ```
 
-On Windows, if the virtual environment is not activated, use its interpreter explicitly:
+### 3. Controls & Interaction
 
-```powershell
-.\venv\Scripts\python.exe -m pip install -r requirements.txt
-.\venv\Scripts\python.exe src\main.py
+| Control | Action |
+|---|---|
+| **CLI Wizard** | Select number of joints (1 to 3) and choose Finger & Phalanx |
+| **`C` key** | Recalibrate palm baseline posture (accumulates 30 stable frames) |
+| **`Q` key** | Gracefully quit session, release camera, and flush session CSV |
+
+---
+
+## Biomechanical Engine
+
+### 1. Spatial Angle Formulation (3D)
+
+Given three spatial points $\mathbf{P}_{\text{proximal}}$, $\mathbf{P}_{\text{vertex}}$, and $\mathbf{P}_{\text{distal}}$:
+
+$$\vec{v}_1 = \mathbf{P}_{\text{proximal}} - \mathbf{P}_{\text{vertex}}, \quad \vec{v}_2 = \mathbf{P}_{\text{distal}} - \mathbf{P}_{\text{vertex}}$$
+
+$$\theta = \arccos\left(\text{clip}\left(\frac{\vec{v}_1 \cdot \vec{v}_2}{\|\vec{v}_1\| \|\vec{v}_2\|}, -1.0, 1.0\right)\right) \times \frac{180}{\pi}$$
+
+### 2. Postural Compensation (Cheat Detection)
+
+The normal vector $\vec{n}_{\text{palm}}$ perpendicular to the coronal plane of the hand is defined by the cross product of vectors spanning from the wrist ($\mathbf{P}_0$) to the index MCP ($\mathbf{P}_5$) and pinky MCP ($\mathbf{P}_{17}$):
+
+$$\vec{n}_{\text{palm}} = \frac{(\mathbf{P}_5 - \mathbf{P}_0) \times (\mathbf{P}_{17} - \mathbf{P}_0)}{\|(\mathbf{P}_5 - \mathbf{P}_0) \times (\mathbf{P}_{17} - \mathbf{P}_0)\|}$$
+
+Angular deviation from baseline posture $\vec{n}_0$ is evaluated every frame. If $\Delta\phi > 15.0^\circ$, a compensation alert is rendered.
+
+---
+
+## Testing
+
+The project includes an automated test suite verifying spatial mathematics, signal smoothing, topological bounds, CSV logging, and CLI resilience:
+
+```bash
+# Execute the full test suite
+python tests/run_tests.py
 ```
-
-Then:
-
-1. Select how many joints you want to monitor.
-2. Choose the finger and specific joint (e.g., **PINKY → PIP**).
-3. Position your hand in front of the webcam.
-4. Perform the flexion exercises.
-5. If wrist compensation is detected, the system will display a **CHEATING!** warning.
-6. Press **Q** or close the window to exit.
-
----
-
-Developed for **clinical rehabilitation** and **Edge AI research**.
-
----
-
-# 🦾 Goniómetro Digital - Rehabilitación con Edge AI
-
-Un goniómetro digital basado en visión artificial e Inteligencia Artificial para la rehabilitación de la mano.
-
-Este proyecto utiliza visión por computador y matemáticas de vectores 3D para medir el **Rango de Movimiento (ROM)** de las articulaciones de la mano en tiempo real, eliminando la necesidad de sensores físicos o dispositivos wearables.
-
-> **Estado:** Fase 1 (MVP Local) – Core de Biomecánica y Tracker de Visión completados.
-
----
-
-## ✨ Características Principales
-
-- 🖐️ **Topografía Completa de la Mano:** Mapeo anatómico de las **14 articulaciones funcionales** de los cinco dedos (MCP, PIP, DIP, CMC, IP).
-- 📐 **Ángulos Espaciales 3D Reales:** Calcula el Rango de Movimiento (ROM) utilizando coordenadas 3D del mundo real (metros), haciendo que las mediciones sean inmunes a la distorsión de perspectiva de las cámaras 2D.
-- 🚨 **Aislamiento Articular (Detección de Trampas):** Utiliza matemáticas de producto vectorial (*cross product*) para calcular dinámicamente el vector normal de la palma, detectando la compensación de la muñeca (rotación no deseada) y alertando al paciente en tiempo real.
-- 💻 **Asistente Interactivo CLI:** Asistente de consola paso a paso para seleccionar y monitorizar dinámicamente hasta **tres articulaciones simultáneamente**, evitando el solapamiento en la interfaz.
-
----
-
-## 🛠️ Stack Tecnológico
-
-- **Lenguaje:** Python 3.10+
-- **Visión Artificial:** OpenCV (`opencv-python`)
-- **IA y Tracking:** Google MediaPipe Hands
-- **Matemáticas:** NumPy (Álgebra Lineal y Vectores 3D)
-
----
-
-## 🏗️ Arquitectura (Clean Code)
-
-El proyecto sigue una arquitectura modular y desacoplada para garantizar su escalabilidad en futuras integraciones IoT/Edge y aplicaciones Web.
 
 ```text
-src/
-├── biomechanics/
-│   ├── joints_map.py
-│   └── math_utils.py
-├── vision/
-│   └── tracker.py
-├── core/
-│   └── config.py
-└── main.py
-```
+Ran 12 tests in 3.411s
 
-### Descripción de los módulos
-
-- **`src/biomechanics/`**
-  - Lógica de negocio pura.
-  - Mapeo anatómico (`joints_map.py`).
-  - Motor matemático agnóstico (`math_utils.py`).
-
-- **`src/vision/`**
-  - Capa adaptadora de IA.
-  - Envuelve MediaPipe Hands (`tracker.py`) para mantener la aplicación independiente del framework de seguimiento.
-
-- **`src/core/`**
-  - Configuración de la aplicación.
-  - Umbrales médicos (`config.py`).
-
-- **`src/main.py`**
-  - Orquestador principal.
-  - Renderizado y visualización en tiempo real.
-
----
-
-## 🧪 Testing
-
-El proyecto incluye una suite completa de pruebas unitarias que cubre matemáticas vectoriales 3D, estructuras de datos y casos límite (por ejemplo, fallos de hardware).
-
-Para ejecutar toda la suite de pruebas, simplemente ejecuta el corredor de pruebas global:
-
-```bash
-python run_tests.py
-```
---- 
-
-## 🚀 Instalación y Configuración
-
-### 1. Clonar el repositorio
-
-```bash
-git clone https://github.com/tu-usuario/digital-goniometer.git
-cd digital-goniometer
-```
-
-### 2. Crear y activar un entorno virtual
-
-#### Windows (PowerShell)
-
-```powershell
-python -m venv venv
-.\venv\Scripts\activate
-```
-
-#### Linux / macOS
-
-```bash
-python3 -m venv venv
-source venv/bin/activate
-```
-
-### 3. Instalar las dependencias
-
-```bash
-pip install opencv-python==4.9.0.80 mediapipe==0.10.9 numpy==1.26.3
+OK
+[SUCCESS] All tests passed. The system is stable.
 ```
 
 ---
 
-## 🎮 Uso
+## Design Decisions
 
-Ejecuta la aplicación principal:
-
-```bash
-python src/main.py
-```
-
-Después:
-
-1. Selecciona cuántas articulaciones deseas monitorizar.
-2. Elige el dedo y la articulación específica (por ejemplo, **MEÑIQUE → PIP**).
-3. Coloca la mano frente a la cámara web.
-4. Realiza los ejercicios de flexión.
-5. Si el sistema detecta compensación mediante rotación de la muñeca, mostrará una alerta **CHEATING!**.
-6. Presiona **Q** o cierra la ventana para salir.
+| Decision | Implementation | Why |
+|---|---|---|
+| **True 3D Coordinates** | MediaPipe `world_landmarks` | 2D pixel coordinates distort angles depending on camera perspective and tilt. 3D coordinates in meters guarantee invariant angular measurement. |
+| **1€ Filter Smoothing** | `OneEuroFilter` | Moving average filters introduce lag. 1€ filter dynamically adapts cutoff frequency based on velocity, giving rock-solid static stabilization and instant reaction on fast movements. |
+| **Threaded Video Stream** | `VideoStream` (`threading.Thread`) | Hardware camera I/O (`cv2.VideoCapture.read()`) is blocking. Running capture on a dedicated thread maximizes frame delivery to inference. |
+| **Defensive Version Shield** | Explicit checks in `tracker.py` | Detects mismatched global Python environments and provides actionable guidance on environment activation. |
+| **Zero Heavy Frameworks** | Pure NumPy + OpenCV | Minimizes memory footprint and eliminates bloated UI dependencies, making the core deployable to Edge IoT targets (Raspberry Pi, Jetson Nano). |
 
 ---
 
-Desarrollado para **rehabilitación clínica** e **investigación en Edge AI**.
+## License
+
+MIT License. Designed and developed by Alejandro de la Vega ([@a-delavega](https://github.com/a-delavega)).
