@@ -21,7 +21,7 @@ An AI-powered, vision-based digital goniometer for hand rehabilitation and physi
 
 > [!WARNING]
 > **Educational & Experimental Disclaimer:**
-> Este proyecto es un **desarrollo estrictamente didáctico y de exploración técnica** diseñado para investigar la aplicación de visión artificial, matemáticas vectoriales 3D y Edge AI. **NO es un dispositivo médico, software clínico certificado ni herramienta de diagnóstico**. No debe utilizarse para evaluar, diagnosticar, tratar ni rehabilitar patologías reales ni sustituir el criterio de profesionales sanitarios o fisioterapeutas colegiados.
+> This repository is strictly an **educational and exploratory project** created to investigate computer vision, 3D vector mathematics, and Edge AI applied to human-computer interaction. **It is NOT a medical device, certified clinical software, or diagnostic tool.** It must not be used to assess, diagnose, treat, or rehabilitate actual medical conditions, nor should it replace professional clinical evaluation or advice from licensed healthcare specialists and physical therapists.
 
 ---
 
