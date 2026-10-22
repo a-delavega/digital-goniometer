@@ -1,5 +1,13 @@
 import cv2
-import mediapipe as mp
+try:
+    import mediapipe as mp
+    # For mediapipe versions where submodules are loaded lazily or restructured
+    if not hasattr(mp, 'solutions'):
+        import mediapipe.python.solutions as mp_solutions
+        mp.solutions = mp_solutions
+except ImportError:
+    pass
+
 import numpy as np
 from typing import Tuple, Optional, Any
 
@@ -17,6 +25,10 @@ class HandTracker:
             min_det_conf (float): Minimum confidence value (0.0 - 1.0) for hand detection.
             min_track_conf (float): Minimum confidence value (0.0 - 1.0) for landmark tracking.
         """
+        if not hasattr(mp, 'solutions'):
+            import mediapipe.python.solutions as mp_solutions
+            mp.solutions = mp_solutions
+
         self.mp_drawing = mp.solutions.drawing_utils
         self.mp_hands = mp.solutions.hands
         
@@ -78,14 +90,14 @@ class HandTracker:
         # Extract the first hand detected (since max_num_hands=1)
         landmarks = results.multi_hand_world_landmarks[0].landmark
         
-        # Convert to a highly optimized NumPy array for vector math
-        coords = np.array([[lm.x, lm.y, lm.z] for lm in landmarks])
+        # Vectorized mapping to a (21, 3) matrix using a clean list comprehension
+        matrix_3d = np.array([[lm.x, lm.y, lm.z] for lm in landmarks], dtype=np.float32)
         
-        return coords
-    
+        return matrix_3d
+
     def close(self):
         """
-        Releases MediaPipe resources and background threads.
-        Critical to prevent the terminal from hanging on exit.
+        Frees underlying C++ graph resources allocated by MediaPipe.
+        Crucial for unit testing to prevent memory leaks and zombie threads.
         """
         self.hands.close()
