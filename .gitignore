@@ -1,9 +1,9 @@
-# Virtual environments (we don't want to upload huge library folders)
+# Virtual environments
 venv/
 env/
 .env
 
-# Compiled Python files (generated automatically)
+# Compiled Python files
 __pycache__/
 *.pyc
 *.pyo
