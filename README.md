@@ -152,7 +152,7 @@ python src/main.py
 
 ### 1. Spatial Angle Formulation (3D)
 
-Given three spatial points $\mathbf{P}_{\text{proximal}}$, $\mathbf{P}_{\text{vertex}}$, and $\mathbf{P}_{\text{distal}}$:
+Given three spatial landmarks in meters: proximal anchor $`\mathbf{P}_{\text{proximal}}`$, joint vertex $`\mathbf{P}_{\text{vertex}}`$, and distal point $`\mathbf{P}_{\text{distal}}`$:
 
 $$\vec{v}_1 = \mathbf{P}_{\text{proximal}} - \mathbf{P}_{\text{vertex}}, \quad \vec{v}_2 = \mathbf{P}_{\text{distal}} - \mathbf{P}_{\text{vertex}}$$
 
@@ -160,11 +160,11 @@ $$\theta = \arccos\left(\text{clip}\left(\frac{\vec{v}_1 \cdot \vec{v}_2}{\|\vec
 
 ### 2. Postural Compensation (Cheat Detection)
 
-The normal vector $\vec{n}_{\text{palm}}$ perpendicular to the coronal plane of the hand is defined by the cross product of vectors spanning from the wrist ($\mathbf{P}_0$) to the index MCP ($\mathbf{P}_5$) and pinky MCP ($\mathbf{P}_{17}$):
+The normal vector $`\vec{n}_{\text{palm}}`$ perpendicular to the coronal plane of the hand is defined by the cross product of vectors spanning from the wrist ($`\mathbf{P}_0`$) to the index MCP ($`\mathbf{P}_5`$) and pinky MCP ($`\mathbf{P}_{17}`$):
 
 $$\vec{n}_{\text{palm}} = \frac{(\mathbf{P}_5 - \mathbf{P}_0) \times (\mathbf{P}_{17} - \mathbf{P}_0)}{\|(\mathbf{P}_5 - \mathbf{P}_0) \times (\mathbf{P}_{17} - \mathbf{P}_0)\|}$$
 
-Angular deviation from baseline posture $\vec{n}_0$ is evaluated every frame. If $\Delta\phi > 15.0^\circ$, a compensation alert is rendered.
+Angular deviation from baseline posture $`\vec{n}_0`$ is evaluated every frame. If $`\Delta\phi > 15.0^\circ`$, a compensation alert is rendered.
 
 ---
 
