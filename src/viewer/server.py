@@ -344,6 +344,9 @@ class GoniometerViewerHandler(BaseHTTPRequestHandler):
         if path == "/" or path == "/dashboard":
             self.send_response(200)
             self.send_header("Content-Type", "text/html; charset=utf-8")
+            self.send_header("X-Content-Type-Options", "nosniff")
+            self.send_header("X-Frame-Options", "DENY")
+            self.send_header("Content-Security-Policy", "default-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net;")
             self.end_headers()
             self.wfile.write(DASHBOARD_HTML.encode("utf-8"))
 
@@ -357,17 +360,29 @@ class GoniometerViewerHandler(BaseHTTPRequestHandler):
                 )
             self.send_response(200)
             self.send_header("Content-Type", "application/json")
+            self.send_header("X-Content-Type-Options", "nosniff")
+            self.send_header("X-Frame-Options", "DENY")
             self.end_headers()
             self.wfile.write(json.dumps(files).encode("utf-8"))
 
         elif path == "/api/session":
             query = urllib.parse.parse_qs(parsed.query)
             filename = query.get("name", [""])[0]
-            if not filename or ".." in filename:
+            
+            # Defense against Path Traversal (CWE-22)
+            safe_basename = os.path.basename(filename)
+            if not filename or filename != safe_basename or not filename.endswith(".csv"):
                 self.send_error(400, "Invalid session filename")
                 return
 
-            file_path = os.path.join(RehabConfig.EXPORT_DIR, filename)
+            canonical_export_dir = os.path.realpath(RehabConfig.EXPORT_DIR)
+            file_path = os.path.realpath(os.path.join(canonical_export_dir, safe_basename))
+
+            # Ensure resolved path is strictly inside canonical_export_dir
+            if not file_path.startswith(canonical_export_dir + os.sep):
+                self.send_error(403, "Access denied")
+                return
+
             if not os.path.exists(file_path):
                 self.send_error(404, "Session file not found")
                 return
@@ -375,6 +390,8 @@ class GoniometerViewerHandler(BaseHTTPRequestHandler):
             data = parse_session_csv(file_path)
             self.send_response(200)
             self.send_header("Content-Type", "application/json")
+            self.send_header("X-Content-Type-Options", "nosniff")
+            self.send_header("X-Frame-Options", "DENY")
             self.end_headers()
             self.wfile.write(json.dumps(data).encode("utf-8"))
 
