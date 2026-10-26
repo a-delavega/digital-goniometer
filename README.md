@@ -48,6 +48,7 @@ The platform is designed with clinical precision and clean software engineering:
 - 📈 **Real-Time Oscilloscope HUD:** Built-in live ROM trajectory curve at the bottom-right corner plotting recent flexion/extension history per joint against reference lines.
 - 🧵 **Threaded Video Pipeline:** Dedicated `VideoStream` worker thread prevents blocking OpenCV I/O from stuttering the main inference and rendering loop.
 - 📊 **Automated CSV Export:** Clinical audit log recording timestamp, elapsed time, raw vs. smoothed angles, deviation angles, and isometry flags.
+- 🖥️ **Rehabilitation Session Viewer:** Built-in web dashboard (Chart.js) to inspect historical patient exercises, analyze ROM span (Min/Max), and compare raw vs. 1€ filtered angular curves.
 
 ---
 
@@ -135,16 +136,21 @@ pip install -r requirements.txt
 ### 2. Launch the Application
 
 ```bash
+# Real-time computer vision goniometer
 python src/main.py
+
+# Launch the interactive Rehabilitation Session Viewer dashboard
+python src/viewer/server.py
 ```
 
-### 3. Controls & Interaction
+### 3. Controls & Dashboard
 
-| Control | Action |
+| Tool / Control | Action |
 |---|---|
 | **CLI Wizard** | Select number of joints (1 to 3) and choose Finger & Phalanx |
 | **`C` key** | Recalibrate palm baseline posture (accumulates 30 stable frames) |
 | **`Q` key** | Gracefully quit session, release camera, and flush session CSV |
+| **Session Viewer** | Open `http://127.0.0.1:8501` to inspect ROM curves, 1€ smoothing, and compensation stats |
 
 ---
 
