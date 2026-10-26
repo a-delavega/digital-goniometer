@@ -96,6 +96,26 @@ class HandTracker:
         
         return matrix_3d
 
+    def get_pixel_landmarks(self, results: Any, image_shape: Tuple[int, int]) -> Optional[np.ndarray]:
+        """
+        Extracts the 2D image coordinates (in pixel space [u, v]) from normalized landmarks.
+        
+        Args:
+            results (Any): Raw output from MediaPipe process().
+            image_shape (Tuple[int, int]): Height and width (h, w) of the target image frame.
+            
+        Returns:
+            Optional[np.ndarray]: A (21, 2) NumPy matrix of pixel integer coordinates (x, y).
+                                  Returns None if no hand is detected.
+        """
+        if not results.multi_hand_landmarks:
+            return None
+
+        h, w = image_shape[:2]
+        landmarks = results.multi_hand_landmarks[0].landmark
+        pixel_coords = np.array([[int(lm.x * w), int(lm.y * h)] for lm in landmarks], dtype=np.int32)
+        return pixel_coords
+
     def close(self):
         """
         Frees underlying C++ graph resources allocated by MediaPipe.

@@ -33,20 +33,16 @@ class TestHandTracker(unittest.TestCase):
 
     def test_process_empty_black_frame(self):
         """Test that the tracker handles a completely black frame without crashing."""
-        # Create a completely black image (height=480, width=640, 3 color channels)
-        # using an 8-bit unsigned integer numpy array (standard OpenCV format)
         black_frame = np.zeros((480, 640, 3), dtype=np.uint8)
         
-        # Process the fake frame
         annotated_frame, results = self.tracker.process_frame(black_frame)
         landmarks_3d = self.tracker.get_world_landmarks(results)
+        landmarks_2d = self.tracker.get_pixel_landmarks(results, black_frame.shape)
         
         # Assertions
-        # 1. The tracker should return an image (even if it just returns the black frame back)
         self.assertIsNotNone(annotated_frame, "The annotated frame should not be None.")
-        
-        # 2. It should return None for landmarks because there are no hands in a black image
         self.assertIsNone(landmarks_3d, "World landmarks should be None when no hand is present.")
+        self.assertIsNone(landmarks_2d, "Pixel landmarks should be None when no hand is present.")
 
 if __name__ == '__main__':
     unittest.main()

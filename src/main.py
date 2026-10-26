@@ -2,8 +2,10 @@ import cv2
 import sys
 import os
 import time
+import math
+from collections import deque
 import numpy as np
-from typing import List, Dict, Optional
+from typing import List, Dict, Optional, Tuple
 
 # Ensure 'src' is always on sys.path regardless of execution working directory
 sys.path.insert(0, os.path.abspath(os.path.dirname(__file__)))
@@ -23,6 +25,13 @@ class GoniometerApp:
     Coordinates camera input, AI tracking, biometric math, filtering, session export, and UI rendering.
     """
     
+    # Visual color palette (BGR)
+    PALETTE = [
+        (0, 255, 255),  # Yellow
+        (255, 128, 0),  # Cyan / Light Blue
+        (0, 200, 100),  # Bright Green
+    ]
+
     def __init__(self, target_joints: List[HandJoint], camera_index: int = 0, export_session: bool = True):
         self.target_joints = target_joints[:3] 
         self.tracker = HandTracker()
@@ -35,6 +44,9 @@ class GoniometerApp:
         
         # Filtering (One Euro Filter per joint)
         self.filters: Dict[str, OneEuroFilter] = {}
+        
+        # Real-time history buffer for mini-oscilloscope graph (last 100 frames per joint)
+        self.history: Dict[str, deque] = {joint.name: deque(maxlen=100) for joint in self.target_joints}
         
         # Isometry state tracking per joint: {joint_name: (reference_angle, start_time, held)}
         self.isometry_tracker: Dict[str, Dict] = {}
@@ -55,16 +67,16 @@ class GoniometerApp:
         print("[INFO] Posture calibration reset.")
 
     def _draw_hud(self, frame: np.ndarray, deviation: float, is_cheating: bool):
-        # Draw top status banner
+        """Renders header overlay with posture alert status and keyboard shortcuts."""
         overlay = frame.copy()
-        cv2.rectangle(overlay, (10, 10), (450, 60), (30, 30, 30), -1)
-        cv2.addWeighted(overlay, 0.7, frame, 0.3, 0, frame)
+        cv2.rectangle(overlay, (10, 10), (450, 60), (25, 25, 25), -1)
+        cv2.addWeighted(overlay, 0.75, frame, 0.25, 0, frame)
 
         if not self.is_calibrated:
             progress = len(self.calibration_buffer)
             total = RehabConfig.CALIBRATION_FRAMES_REQUIRED
             text = f"CALIBRATING POSTURE: {progress}/{total}"
-            color = (0, 215, 255) # Yellow/Orange
+            color = (0, 215, 255) # Amber
         elif is_cheating:
             text = f"COMPENSATION ALERT! Rot: {int(deviation)} deg"
             color = (0, 0, 255) # Red
@@ -76,13 +88,129 @@ class GoniometerApp:
         cv2.putText(frame, "Keys: [C] Recalibrate | [Q] Quit", (15, frame.shape[0] - 15),
                     cv2.FONT_HERSHEY_SIMPLEX, 0.5, (200, 200, 200), 1)
 
-    def _draw_joint_arc(self, frame: np.ndarray, vertex_2d: np.ndarray, p1_2d: np.ndarray, p2_2d: np.ndarray, angle: float):
-        """Draws visual biofeedback sector/arc on the image."""
-        try:
-            v_pt = tuple(vertex_2d.astype(int))
-            cv2.circle(frame, v_pt, 6, (0, 255, 255), -1)
-        except Exception:
-            pass
+    def _draw_joint_biofeedback(
+        self,
+        frame: np.ndarray,
+        p_prox_2d: np.ndarray,
+        p_vert_2d: np.ndarray,
+        p_dist_2d: np.ndarray,
+        angle: float,
+        color: Tuple[int, int, int],
+        is_held: bool
+    ):
+        """
+        Draws dynamic visual biofeedback on the hand:
+        - Glowing skeletal bone vectors connecting the joint.
+        - Vertex circle marker.
+        - Angular circular sector/arc representing current Range of Motion.
+        - Live floating angle badge near the vertex.
+        """
+        vx, vy = int(p_vert_2d[0]), int(p_vert_2d[1])
+        px, py = int(p_prox_2d[0]), int(p_prox_2d[1])
+        dx, dy = int(p_dist_2d[0]), int(p_dist_2d[1])
+
+        # Draw bone vectors
+        bone_color = (0, 255, 255) if is_held else color
+        cv2.line(frame, (px, py), (vx, vy), bone_color, 3, cv2.LINE_AA)
+        cv2.line(frame, (vx, vy), (dx, dy), bone_color, 3, cv2.LINE_AA)
+
+        # Draw vertex anchor
+        cv2.circle(frame, (vx, vy), 7, (255, 255, 255), -1, cv2.LINE_AA)
+        cv2.circle(frame, (vx, vy), 9, bone_color, 2, cv2.LINE_AA)
+
+        # Draw angular arc sector
+        v_prox = np.array([px - vx, py - vy], dtype=float)
+        v_dist = np.array([dx - vx, dy - vy], dtype=float)
+
+        len_prox = np.linalg.norm(v_prox)
+        len_dist = np.linalg.norm(v_dist)
+
+        if len_prox > 5 and len_dist > 5:
+            ang_prox = math.degrees(math.atan2(v_prox[1], v_prox[0]))
+            ang_dist = math.degrees(math.atan2(v_dist[1], v_dist[0]))
+
+            # Determine angular sweep direction
+            diff = (ang_dist - ang_prox) % 360
+            radius = int(min(len_prox, len_dist) * 0.45)
+            radius = max(18, min(40, radius))
+
+            start_angle = ang_prox
+            end_angle = ang_prox + diff if diff <= 180 else ang_prox - (360 - diff)
+
+            overlay = frame.copy()
+            cv2.ellipse(
+                overlay,
+                (vx, vy),
+                (radius, radius),
+                0,
+                start_angle,
+                end_angle,
+                bone_color,
+                -1,
+                cv2.LINE_AA
+            )
+            cv2.addWeighted(overlay, 0.4, frame, 0.6, 0, frame)
+            cv2.ellipse(
+                frame,
+                (vx, vy),
+                (radius, radius),
+                0,
+                start_angle,
+                end_angle,
+                (255, 255, 255),
+                2,
+                cv2.LINE_AA
+            )
+
+        # Floating angle badge
+        badge_text = f"{int(angle)} deg"
+        badge_x = vx + 15
+        badge_y = vy - 10
+        cv2.rectangle(frame, (badge_x - 4, badge_y - 14), (badge_x + 65, badge_y + 6), (20, 20, 20), -1)
+        cv2.putText(frame, badge_text, (badge_x, badge_y), cv2.FONT_HERSHEY_SIMPLEX, 0.45, (255, 255, 255), 1, cv2.LINE_AA)
+
+    def _draw_oscilloscope_graph(self, frame: np.ndarray):
+        """
+        Renders a live mini real-time graph (oscilloscope) at the bottom-right
+        tracking the angular flexion trajectory of each joint over time.
+        """
+        h, w = frame.shape[:2]
+        gw, gh = 230, 95
+        gx = w - gw - 15
+        gy = h - gh - 20
+
+        # Background card with translucency
+        overlay = frame.copy()
+        cv2.rectangle(overlay, (gx, gy), (gx + gw, gy + gh), (20, 20, 20), -1)
+        cv2.addWeighted(overlay, 0.8, frame, 0.2, 0, frame)
+        cv2.rectangle(frame, (gx, gy), (gx + gw, gy + gh), (80, 80, 80), 1)
+
+        # Guide reference lines (180 deg top, 90 deg middle, 0 deg bottom)
+        cv2.putText(frame, "ROM History", (gx + 8, gy + 14), cv2.FONT_HERSHEY_SIMPLEX, 0.4, (180, 180, 180), 1)
+        y_90 = gy + int(gh * 0.5)
+        cv2.line(frame, (gx + 30, y_90), (gx + gw - 8, y_90), (50, 50, 50), 1)
+        cv2.putText(frame, "90", (gx + 8, y_90 + 4), cv2.FONT_HERSHEY_SIMPLEX, 0.32, (120, 120, 120), 1)
+
+        # Plot line curves per joint
+        for idx, joint in enumerate(self.target_joints):
+            points = self.history.get(joint.name, [])
+            if len(points) < 2:
+                continue
+
+            color = self.PALETTE[idx % len(self.PALETTE)]
+            n = len(points)
+            step = (gw - 40) / max(1, points.maxlen - 1)
+
+            curve_pts = []
+            for i, val in enumerate(points):
+                px = int(gx + 32 + (i + (points.maxlen - n)) * step)
+                # Map 0..180 deg to bottom..top of graph area
+                normalized_val = np.clip(val / 180.0, 0.0, 1.0)
+                py = int(gy + gh - 8 - (normalized_val * (gh - 26)))
+                curve_pts.append((px, py))
+
+            for i in range(len(curve_pts) - 1):
+                cv2.line(frame, curve_pts[i], curve_pts[i + 1], color, 2, cv2.LINE_AA)
 
     def run(self):
         print(f"\n[INFO] Starting Digital Goniometer for {len(self.target_joints)} joint(s).")
@@ -100,12 +228,12 @@ class GoniometerApp:
                     continue
 
                 frame = cv2.flip(frame, 1)
-                h, w, _ = frame.shape
                 current_time = time.time()
                 elapsed_session = current_time - self.start_time
 
                 annotated_frame, results = self.tracker.process_frame(frame)
                 landmarks_3d = self.tracker.get_world_landmarks(results)
+                landmarks_2d = self.tracker.get_pixel_landmarks(results, annotated_frame.shape)
                 
                 deviation = 0.0
                 is_cheating = False
@@ -131,7 +259,7 @@ class GoniometerApp:
                         )
                         is_cheating = (deviation > RehabConfig.MAX_PALM_DEVIATION_DEGREES)
 
-                    # --- RANGE OF MOTION & FILTERING ---
+                    # --- RANGE OF MOTION, FILTERING & VISUALIZATION ---
                     should_log = (current_time - last_log_time >= 0.1)
                     for index, joint in enumerate(self.target_joints):
                         p_prox_idx, p_vertex_idx, p_distal_idx = joint.indices
@@ -146,8 +274,13 @@ class GoniometerApp:
                             self.filters[joint.name] = OneEuroFilter(current_time, raw_angle)
                         smoothed_angle = self.filters[joint.name].filter(current_time, raw_angle)
 
+                        # Update historical trajectory for oscilloscope
+                        self.history[joint.name].append(smoothed_angle)
+
                         # Check Isometry
-                        iso_state = self.isometry_tracker.setdefault(joint.name, {"target": smoothed_angle, "start": current_time, "held": False})
+                        iso_state = self.isometry_tracker.setdefault(
+                            joint.name, {"target": smoothed_angle, "start": current_time, "held": False}
+                        )
                         if abs(smoothed_angle - iso_state["target"]) <= RehabConfig.ISOMETRY_ANGLE_TOLERANCE:
                             if current_time - iso_state["start"] >= RehabConfig.ISOMETRY_HOLD_SECONDS:
                                 iso_state["held"] = True
@@ -155,6 +288,19 @@ class GoniometerApp:
                             iso_state["target"] = smoothed_angle
                             iso_state["start"] = current_time
                             iso_state["held"] = False
+
+                        # Draw anatomical biofeedback arc and vectors on the hand
+                        joint_color = self.PALETTE[index % len(self.PALETTE)]
+                        if landmarks_2d is not None:
+                            self._draw_joint_biofeedback(
+                                annotated_frame,
+                                landmarks_2d[p_prox_idx],
+                                landmarks_2d[p_vertex_idx],
+                                landmarks_2d[p_distal_idx],
+                                smoothed_angle,
+                                joint_color,
+                                iso_state["held"]
+                            )
 
                         # Logging to CSV session
                         if self.exporter and should_log:
@@ -168,17 +314,20 @@ class GoniometerApp:
                                 isometry_held=iso_state["held"]
                             )
 
-                        # UI Rendering for Joint
+                        # HUD Metric List on Left
                         y_pos = 90 + (index * 42)
                         iso_badge = " [ISO HOLD!]" if iso_state["held"] else ""
-                        joint_color = (0, 255, 255) if iso_state["held"] else (255, 255, 255)
+                        badge_color = (0, 255, 255) if iso_state["held"] else joint_color
                         cv2.putText(annotated_frame, f"{joint.name}: {int(smoothed_angle)} deg{iso_badge}", 
-                                    (20, y_pos), cv2.FONT_HERSHEY_SIMPLEX, 0.75, joint_color, 2)
+                                    (20, y_pos), cv2.FONT_HERSHEY_SIMPLEX, 0.75, badge_color, 2, cv2.LINE_AA)
 
                     if should_log:
                         last_log_time = current_time
 
+                # Draw top HUD and bottom-right oscilloscope
                 self._draw_hud(annotated_frame, deviation, is_cheating)
+                self._draw_oscilloscope_graph(annotated_frame)
+                
                 cv2.imshow(window_name, annotated_frame)
                 
                 # --- KEYBOARD CONTROLS ---

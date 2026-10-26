@@ -44,6 +44,8 @@ The platform is designed with clinical precision and clean software engineering:
 - 🚨 **Articular Isolation & Cheat Detection:** Continuously computes the palm's normal vector via vector cross product ($\vec{v}_1 \times \vec{v}_2$), triggering real-time compensation warnings if the wrist rotates beyond clinical tolerances.
 - 🎯 **1€ Filter Adaptive Signal Smoothing:** Dual-cutoff low-pass filter eliminates camera landmark jitter during static postures while preserving responsive zero-lag tracking during rapid flexions.
 - ⏱️ **Isometric Hold Tracking:** Automatically detects when a patient maintains target joint flexion angles within tolerance thresholds for a required duration (e.g. 3.0s).
+- 🌈 **Visual Biofeedback & Angular Sector:** Draws dynamic glowing bone vectors, vertex circles, and translucent circular sectors/arcs directly onto the hand with live floating degree badges.
+- 📈 **Real-Time Oscilloscope HUD:** Built-in live ROM trajectory curve at the bottom-right corner plotting recent flexion/extension history per joint against reference lines.
 - 🧵 **Threaded Video Pipeline:** Dedicated `VideoStream` worker thread prevents blocking OpenCV I/O from stuttering the main inference and rendering loop.
 - 📊 **Automated CSV Export:** Clinical audit log recording timestamp, elapsed time, raw vs. smoothed angles, deviation angles, and isometry flags.
 
