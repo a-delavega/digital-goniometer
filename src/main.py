@@ -1,14 +1,31 @@
 import cv2
 import sys
 import os
+import subprocess
 import time
 import math
 from collections import deque
 import numpy as np
 from typing import List, Dict, Optional, Tuple
 
+# Automatically detect and re-execute inside the project virtual environment (venv)
+# if the script was launched using a global Python or an external environment.
+_SCRIPT_DIR = os.path.abspath(os.path.dirname(__file__))
+_PROJECT_ROOT = os.path.abspath(os.path.join(_SCRIPT_DIR, ".."))
+_VENV_PYTHON = os.path.join(_PROJECT_ROOT, "venv", "Scripts", "python.exe")
+
+if (
+    os.path.exists(_VENV_PYTHON)
+    and os.path.normpath(sys.executable).lower() != os.path.normpath(_VENV_PYTHON).lower()
+    and os.environ.get("GONIO_REEXEC") != "1"
+):
+    env = os.environ.copy()
+    env["GONIO_REEXEC"] = "1"
+    res = subprocess.run([_VENV_PYTHON, os.path.abspath(__file__)] + sys.argv[1:], env=env)
+    sys.exit(res.returncode)
+
 # Ensure 'src' is always on sys.path regardless of execution working directory
-sys.path.insert(0, os.path.abspath(os.path.dirname(__file__)))
+sys.path.insert(0, _SCRIPT_DIR)
 
 # Import our custom modules
 from biomechanics.joints_map import HandJoint
