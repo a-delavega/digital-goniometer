@@ -23,6 +23,7 @@ class SessionExporter:
                 "timestamp",
                 "elapsed_time_s",
                 "joint_name",
+                "handedness",
                 "raw_angle_deg",
                 "smoothed_angle_deg",
                 "posture_deviation_deg",
@@ -40,7 +41,8 @@ class SessionExporter:
         deviation: float,
         is_cheating: bool,
         isometry_held: bool,
-        reps_completed: int = 0
+        reps_completed: int = 0,
+        handedness: str = "Unknown"
     ):
         with open(self.file_path, mode="a", newline="", encoding="utf-8") as f:
             writer = csv.writer(f)
@@ -48,6 +50,7 @@ class SessionExporter:
                 time.time(),
                 f"{elapsed_time_s:.2f}",
                 joint_name,
+                handedness,
                 f"{raw_angle:.1f}",
                 f"{smoothed_angle:.1f}",
                 f"{deviation:.1f}",

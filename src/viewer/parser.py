@@ -22,6 +22,7 @@ def parse_session_csv(file_path: str) -> Dict[str, Any]:
                     "timestamp": float(row.get("timestamp", 0.0)),
                     "elapsed_time_s": float(row.get("elapsed_time_s", 0.0)),
                     "joint_name": row.get("joint_name", "UNKNOWN"),
+                    "handedness": row.get("handedness", "Unknown"),
                     "raw_angle_deg": float(row.get("raw_angle_deg", 0.0)),
                     "smoothed_angle_deg": float(row.get("smoothed_angle_deg", 0.0)),
                     "posture_deviation_deg": float(row.get("posture_deviation_deg", 0.0)),
@@ -49,6 +50,7 @@ def parse_session_csv(file_path: str) -> Dict[str, Any]:
     total_records = len(records)
     cheating_count = sum(1 for r in records if r["is_cheating"])
     isometry_count = sum(1 for r in records if r["isometry_held"])
+    detected_handedness = next((r["handedness"] for r in records if r["handedness"] != "Unknown"), "Unknown")
 
     # Group by joint
     joints_data: Dict[str, Dict[str, Any]] = {}
@@ -98,6 +100,7 @@ def parse_session_csv(file_path: str) -> Dict[str, Any]:
         "filename": filename,
         "total_records": total_records,
         "duration_s": round(duration, 1),
+        "handedness": detected_handedness,
         "joints": joint_summaries,
         "global_metrics": {
             "cheating_frames": cheating_count,
