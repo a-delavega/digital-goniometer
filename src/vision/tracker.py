@@ -116,6 +116,22 @@ class HandTracker:
         pixel_coords = np.array([[int(lm.x * w), int(lm.y * h)] for lm in landmarks], dtype=np.int32)
         return pixel_coords
 
+    def get_handedness(self, results: Any) -> Optional[Tuple[str, float]]:
+        """
+        Extracts hand classification (Left / Right) and prediction confidence.
+        
+        Args:
+            results (Any): Raw output from MediaPipe process().
+            
+        Returns:
+            Optional[Tuple[str, float]]: ("Left" | "Right", confidence 0.0-1.0)
+                                         Returns None if no hand detected.
+        """
+        if not getattr(results, "multi_handedness", None):
+            return None
+        classification = results.multi_handedness[0].classification[0]
+        return classification.label, float(classification.score)
+
     def close(self):
         """
         Frees underlying C++ graph resources allocated by MediaPipe.

@@ -43,6 +43,10 @@ class TestHandTracker(unittest.TestCase):
         self.assertIsNotNone(annotated_frame, "The annotated frame should not be None.")
         self.assertIsNone(landmarks_3d, "World landmarks should be None when no hand is present.")
         self.assertIsNone(landmarks_2d, "Pixel landmarks should be None when no hand is present.")
+        
+        # Test handedness on empty frame
+        handedness = self.tracker.get_handedness(results)
+        self.assertIsNone(handedness, "Handedness should be None when no hand is present.")
 
 if __name__ == '__main__':
     unittest.main()
