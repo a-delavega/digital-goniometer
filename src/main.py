@@ -89,25 +89,30 @@ class GoniometerApp:
         self.is_calibrated = False
         print("[INFO] Posture calibration reset.")
 
-    def _draw_hud(self, frame: np.ndarray, deviation: float, is_cheating: bool):
-        """Renders header overlay with posture alert status and keyboard shortcuts."""
+    def _draw_hud(self, frame: np.ndarray, deviation: float, is_cheating: bool, handedness_info: Optional[Tuple[str, float]] = None):
+        """Renders header overlay with posture alert status, detected hand, and keyboard shortcuts."""
         overlay = frame.copy()
-        cv2.rectangle(overlay, (10, 10), (450, 60), (25, 25, 25), -1)
+        cv2.rectangle(overlay, (10, 10), (490, 60), (25, 25, 25), -1)
         cv2.addWeighted(overlay, 0.75, frame, 0.25, 0, frame)
+
+        hand_tag = ""
+        if handedness_info:
+            label, conf = handedness_info
+            hand_tag = f" | {label.upper()} ({int(conf * 100)}%)"
 
         if not self.is_calibrated:
             progress = len(self.calibration_buffer)
             total = RehabConfig.CALIBRATION_FRAMES_REQUIRED
-            text = f"CALIBRATING POSTURE: {progress}/{total}"
+            text = f"CALIBRATING: {progress}/{total}{hand_tag}"
             color = (0, 215, 255) # Amber
         elif is_cheating:
-            text = f"COMPENSATION ALERT! Rot: {int(deviation)} deg"
+            text = f"COMPENSATION ALERT! Rot: {int(deviation)} deg{hand_tag}"
             color = (0, 0, 255) # Red
         else:
-            text = f"POSTURE OK (Dev: {int(deviation)} deg)"
+            text = f"POSTURE OK (Dev: {int(deviation)} deg){hand_tag}"
             color = (0, 255, 0) # Green
 
-        cv2.putText(frame, text, (20, 42), cv2.FONT_HERSHEY_SIMPLEX, 0.65, color, 2)
+        cv2.putText(frame, text, (20, 42), cv2.FONT_HERSHEY_SIMPLEX, 0.60, color, 2)
         cv2.putText(frame, "Keys: [C] Recalibrate | [Q] Quit", (15, frame.shape[0] - 15),
                     cv2.FONT_HERSHEY_SIMPLEX, 0.5, (200, 200, 200), 1)
 
@@ -257,6 +262,7 @@ class GoniometerApp:
                 annotated_frame, results = self.tracker.process_frame(frame)
                 landmarks_3d = self.tracker.get_world_landmarks(results)
                 landmarks_2d = self.tracker.get_pixel_landmarks(results, annotated_frame.shape)
+                handedness_info = self.tracker.get_handedness(results)
                 
                 deviation = 0.0
                 is_cheating = False
@@ -331,6 +337,7 @@ class GoniometerApp:
 
                         # Logging to CSV session
                         if self.exporter and should_log:
+                            detected_hand_label = handedness_info[0] if handedness_info else "Unknown"
                             self.exporter.log_record(
                                 elapsed_time_s=elapsed_session,
                                 joint_name=joint.name,
@@ -339,7 +346,8 @@ class GoniometerApp:
                                 deviation=deviation,
                                 is_cheating=is_cheating,
                                 isometry_held=iso_state["held"],
-                                reps_completed=reps_done
+                                reps_completed=reps_done,
+                                handedness=detected_hand_label
                             )
 
                         # HUD Metric List on Left
@@ -354,7 +362,7 @@ class GoniometerApp:
                         last_log_time = current_time
 
                 # Draw top HUD and bottom-right oscilloscope
-                self._draw_hud(annotated_frame, deviation, is_cheating)
+                self._draw_hud(annotated_frame, deviation, is_cheating, handedness_info)
                 self._draw_oscilloscope_graph(annotated_frame)
                 
                 cv2.imshow(window_name, annotated_frame)
