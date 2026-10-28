@@ -27,7 +27,8 @@ class SessionExporter:
                 "smoothed_angle_deg",
                 "posture_deviation_deg",
                 "is_cheating",
-                "isometry_held"
+                "isometry_held",
+                "reps_completed"
             ])
 
     def log_record(
@@ -38,7 +39,8 @@ class SessionExporter:
         smoothed_angle: float,
         deviation: float,
         is_cheating: bool,
-        isometry_held: bool
+        isometry_held: bool,
+        reps_completed: int = 0
     ):
         with open(self.file_path, mode="a", newline="", encoding="utf-8") as f:
             writer = csv.writer(f)
@@ -50,5 +52,6 @@ class SessionExporter:
                 f"{smoothed_angle:.1f}",
                 f"{deviation:.1f}",
                 int(is_cheating),
-                int(isometry_held)
+                int(isometry_held),
+                int(reps_completed)
             ])

@@ -27,6 +27,7 @@ def parse_session_csv(file_path: str) -> Dict[str, Any]:
                     "posture_deviation_deg": float(row.get("posture_deviation_deg", 0.0)),
                     "is_cheating": int(row.get("is_cheating", 0)) == 1,
                     "isometry_held": int(row.get("isometry_held", 0)) == 1,
+                    "reps_completed": int(row.get("reps_completed", 0)),
                 })
             except (ValueError, TypeError):
                 continue
@@ -71,6 +72,7 @@ def parse_session_csv(file_path: str) -> Dict[str, Any]:
         jd["deviations"].append(r["posture_deviation_deg"])
         jd["cheating"].append(1 if r["is_cheating"] else 0)
         jd["isometry"].append(1 if r["isometry_held"] else 0)
+        jd.setdefault("reps", []).append(r["reps_completed"])
 
     # Compute per-joint statistics
     joint_summaries: Dict[str, Any] = {}
@@ -80,6 +82,7 @@ def parse_session_csv(file_path: str) -> Dict[str, Any]:
         max_ang = max(angles) if angles else 0.0
         rom = max_ang - min_ang
         avg_ang = sum(angles) / len(angles) if angles else 0.0
+        total_reps = max(data.get("reps", [0]))
         
         joint_summaries[jname] = {
             "series": data,
@@ -87,6 +90,7 @@ def parse_session_csv(file_path: str) -> Dict[str, Any]:
             "min_angle_deg": round(min_ang, 1),
             "max_angle_deg": round(max_ang, 1),
             "avg_angle_deg": round(avg_ang, 1),
+            "total_reps": total_reps,
             "sample_count": len(angles)
         }
 

@@ -27,7 +27,8 @@ class TestSessionExporter(unittest.TestCase):
             smoothed_angle=90.1,
             deviation=5.0,
             is_cheating=False,
-            isometry_held=True
+            isometry_held=True,
+            reps_completed=3
         )
 
         with open(exporter.file_path, "r", encoding="utf-8") as f:
@@ -36,6 +37,7 @@ class TestSessionExporter(unittest.TestCase):
         self.assertEqual(len(lines), 2)  # Header + 1 record
         self.assertIn("INDEX_MCP", lines[1])
         self.assertIn("90.1", lines[1])
+        self.assertIn(",3", lines[1])
 
 if __name__ == '__main__':
     unittest.main()
