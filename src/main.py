@@ -30,6 +30,7 @@ sys.path.insert(0, _SCRIPT_DIR)
 # Import our custom modules
 from biomechanics.joints_map import HandJoint
 from biomechanics.math_utils import BiomechanicsMath, OneEuroFilter
+from biomechanics.repetition_counter import RepetitionCounter
 from vision.tracker import HandTracker
 from vision.stream import VideoStream
 from core.config import RehabConfig
@@ -61,6 +62,11 @@ class GoniometerApp:
         
         # Filtering (One Euro Filter per joint)
         self.filters: Dict[str, OneEuroFilter] = {}
+        
+        # Repetition counters per joint
+        self.rep_counters: Dict[str, RepetitionCounter] = {
+            joint.name: RepetitionCounter() for joint in self.target_joints
+        }
         
         # Real-time history buffer for mini-oscilloscope graph (last 100 frames per joint)
         self.history: Dict[str, deque] = {joint.name: deque(maxlen=100) for joint in self.target_joints}
@@ -294,6 +300,10 @@ class GoniometerApp:
                         # Update historical trajectory for oscilloscope
                         self.history[joint.name].append(smoothed_angle)
 
+                        # Update Repetition Counter & Quality
+                        rep_counter = self.rep_counters.setdefault(joint.name, RepetitionCounter())
+                        reps_done, new_rep_completed = rep_counter.update(smoothed_angle)
+
                         # Check Isometry
                         iso_state = self.isometry_tracker.setdefault(
                             joint.name, {"target": smoothed_angle, "start": current_time, "held": False}
@@ -328,15 +338,17 @@ class GoniometerApp:
                                 smoothed_angle=smoothed_angle,
                                 deviation=deviation,
                                 is_cheating=is_cheating,
-                                isometry_held=iso_state["held"]
+                                isometry_held=iso_state["held"],
+                                reps_completed=reps_done
                             )
 
                         # HUD Metric List on Left
                         y_pos = 90 + (index * 42)
                         iso_badge = " [ISO HOLD!]" if iso_state["held"] else ""
                         badge_color = (0, 255, 255) if iso_state["held"] else joint_color
-                        cv2.putText(annotated_frame, f"{joint.name}: {int(smoothed_angle)} deg{iso_badge}", 
-                                    (20, y_pos), cv2.FONT_HERSHEY_SIMPLEX, 0.75, badge_color, 2, cv2.LINE_AA)
+                        reps_badge = f" | Reps: {reps_done}"
+                        cv2.putText(annotated_frame, f"{joint.name}: {int(smoothed_angle)} deg{reps_badge}{iso_badge}", 
+                                    (20, y_pos), cv2.FONT_HERSHEY_SIMPLEX, 0.70, badge_color, 2, cv2.LINE_AA)
 
                     if should_log:
                         last_log_time = current_time
