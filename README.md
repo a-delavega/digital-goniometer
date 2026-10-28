@@ -7,7 +7,7 @@
 [![MediaPipe](https://img.shields.io/badge/MediaPipe-Hands%200.10.9-FF6F00.svg?logo=google&logoColor=white)](https://developers.google.com/mediapipe)
 [![OpenCV](https://img.shields.io/badge/OpenCV-4.9%2B-5C3EE8.svg?logo=opencv&logoColor=white)](https://opencv.org/)
 [![NumPy](https://img.shields.io/badge/NumPy-Vector%20Math-013243.svg?logo=numpy&logoColor=white)](https://numpy.org/)
-[![Tests](https://img.shields.io/badge/tests-12%20passed-brightgreen.svg?logo=pytest&logoColor=white)](tests/)
+[![Tests](https://img.shields.io/badge/tests-16%20passed-brightgreen.svg?logo=pytest&logoColor=white)](tests/)
 [![Architecture](https://img.shields.io/badge/architecture-Clean%20%2F%20Decoupled-orange.svg)](#architecture)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 
@@ -44,6 +44,8 @@ The platform is designed with clinical precision and clean software engineering:
 - 🚨 **Articular Isolation & Cheat Detection:** Continuously computes the palm's normal vector via vector cross product ($\vec{v}_1 \times \vec{v}_2$), triggering real-time compensation warnings if the wrist rotates beyond clinical tolerances.
 - 🎯 **1€ Filter Adaptive Signal Smoothing:** Dual-cutoff low-pass filter eliminates camera landmark jitter during static postures while preserving responsive zero-lag tracking during rapid flexions.
 - ⏱️ **Isometric Hold Tracking:** Automatically detects when a patient maintains target joint flexion angles within tolerance thresholds for a required duration (e.g. 3.0s).
+- 🔄 **Clinical Repetition Counter & Fatigue Tracker:** State-machine based flexion/extension cycle tracking that counts valid reps and evaluates motor fatigue (ROM decay %).
+- 🤚 **Automatic Handedness Recognition:** Automatically classifies whether the patient is exercising the Left or Right hand with confidence metrics and logs lateral data.
 - 🌈 **Visual Biofeedback & Angular Sector:** Draws dynamic glowing bone vectors, vertex circles, and translucent circular sectors/arcs directly onto the hand with live floating degree badges.
 - 📈 **Real-Time Oscilloscope HUD:** Built-in live ROM trajectory curve at the bottom-right corner plotting recent flexion/extension history per joint against reference lines.
 - 🧵 **Threaded Video Pipeline:** Dedicated `VideoStream` worker thread prevents blocking OpenCV I/O from stuttering the main inference and rendering loop.
