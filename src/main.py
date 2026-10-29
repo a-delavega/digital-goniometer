@@ -2,6 +2,7 @@ import cv2
 import sys
 import os
 import subprocess
+import argparse
 import time
 import math
 from collections import deque
@@ -389,14 +390,8 @@ class GoniometerApp:
                 print(f"[INFO] Rehabilitation session saved to: {self.exporter.file_path}")
 
 
-def main():
-    """
-    Entry point of the script. Handles user configuration via an interactive CLI wizard.
-    """
-    print("========================================")
-    print("    EDGE AI REHABILITATION GONIOMETER    ")
-    print("========================================")
-    
+def run_interactive_wizard() -> List[HandJoint]:
+    """Runs the step-by-step console assistant to configure target joints."""
     selected_joints = []
     
     fingers = {
@@ -446,8 +441,78 @@ def main():
         selected_joints.append(joint_enum)
         print(f"[SUCCESS] Added {enum_string} to tracking list.")
 
+    return selected_joints
+
+
+def parse_cli_args(args: Optional[List[str]] = None) -> argparse.Namespace:
+    """Parses optional command-line arguments to bypass the interactive wizard."""
+    all_joint_names = [j.name for j in HandJoint]
+
+    parser = argparse.ArgumentParser(
+        description="Digital Goniometer - Vision-based Range of Motion (ROM) assessment tool",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog="Examples:\n"
+               "  python src/main.py\n"
+               "  python src/main.py --joints INDEX_PIP\n"
+               "  python src/main.py --joints INDEX_MCP MIDDLE_PIP --camera 0 --no-export\n"
+    )
+    parser.add_argument(
+        "-j", "--joints",
+        nargs="+",
+        metavar="JOINT",
+        help=f"Target joint(s) to monitor (up to 3). Choices: {', '.join(all_joint_names)}"
+    )
+    parser.add_argument(
+        "-c", "--camera",
+        type=int,
+        default=0,
+        help="Webcam device index (default: 0)"
+    )
+    parser.add_argument(
+        "--no-export",
+        action="store_true",
+        help="Disable automatic CSV rehabilitation session logging"
+    )
+
+    return parser.parse_args(args)
+
+
+def main(cli_args: Optional[List[str]] = None):
+    """
+    Entry point of the script. Handles user configuration via arguments or interactive CLI wizard.
+    """
+    print("========================================")
+    print("    EDGE AI REHABILITATION GONIOMETER    ")
+    print("========================================")
+    
+    parsed = parse_cli_args(cli_args)
+    
+    selected_joints: List[HandJoint] = []
+    
+    if parsed.joints:
+        for name in parsed.joints:
+            name_upper = name.strip().upper()
+            if hasattr(HandJoint, name_upper):
+                selected_joints.append(getattr(HandJoint, name_upper))
+                print(f"[CLI] Selected joint: {name_upper}")
+            else:
+                print(f"[WARNING] Unknown joint name '{name}'. Skipping.")
+        
+        if not selected_joints:
+            print("[WARNING] No valid joints provided via arguments. Launching interactive wizard...")
+            selected_joints = run_interactive_wizard()
+    else:
+        selected_joints = run_interactive_wizard()
+
+    export_session = not parsed.no_export
+    camera_idx = parsed.camera
+
     print("\n[INFO] Starting camera...")
-    app = GoniometerApp(target_joints=selected_joints)
+    app = GoniometerApp(
+        target_joints=selected_joints,
+        camera_index=camera_idx,
+        export_session=export_session
+    )
     app.run()
 
 
