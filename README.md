@@ -7,7 +7,7 @@
 [![MediaPipe](https://img.shields.io/badge/MediaPipe-Hands%200.10.9-FF6F00.svg?logo=google&logoColor=white)](https://developers.google.com/mediapipe)
 [![OpenCV](https://img.shields.io/badge/OpenCV-4.9%2B-5C3EE8.svg?logo=opencv&logoColor=white)](https://opencv.org/)
 [![NumPy](https://img.shields.io/badge/NumPy-Vector%20Math-013243.svg?logo=numpy&logoColor=white)](https://numpy.org/)
-[![Tests](https://img.shields.io/badge/tests-16%20passed-brightgreen.svg?logo=pytest&logoColor=white)](tests/)
+[![Tests](https://img.shields.io/badge/tests-18%20passed-brightgreen.svg?logo=pytest&logoColor=white)](tests/)
 [![Architecture](https://img.shields.io/badge/architecture-Clean%20%2F%20Decoupled-orange.svg)](#architecture)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 
@@ -138,8 +138,12 @@ pip install -r requirements.txt
 ### 2. Launch the Application
 
 ```bash
-# Real-time computer vision goniometer
+# Launch with interactive CLI wizard
 python src/main.py
+
+# Launch directly bypassing the wizard with CLI flags
+python src/main.py --joints INDEX_PIP
+python src/main.py --joints INDEX_MCP MIDDLE_PIP --camera 0 --no-export
 
 # Launch the interactive Rehabilitation Session Viewer dashboard
 python src/viewer/server.py
@@ -149,6 +153,7 @@ python src/viewer/server.py
 
 | Tool / Control | Action |
 |---|---|
+| **CLI Arguments** | Pass `--joints <NAME...>` to launch instantly without manual wizard prompts |
 | **CLI Wizard** | Select number of joints (1 to 3) and choose Finger & Phalanx |
 | **`C` key** | Recalibrate palm baseline posture (accumulates 30 stable frames) |
 | **`Q` key** | Gracefully quit session, release camera, and flush session CSV |
